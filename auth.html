@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Улиграм - Вход</title>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Roboto', 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: #f5f5f5;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Color themes */
+        body[data-theme="green"] { --primary-color: #2e7d32; --primary-dark: #1b5e20; }
+        body[data-theme="red"] { --primary-color: #c62828; --primary-dark: #8e0000; }
+        body[data-theme="blue"] { --primary-color: #1565c0; --primary-dark: #003c8f; }
+        body[data-theme="purple"] { --primary-color: #6a1b9a; --primary-dark: #38006b; }
+        body[data-theme="orange"] { --primary-color: #e65100; --primary-dark: #ac1900; }
+        body[data-theme="yellow"] { --primary-color: #f9a825; --primary-dark: #c77800; }
+
+        .auth-page {
+            width: 100%;
+            min-height: 100vh;
+            background: #f5f5f5;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        
+        .auth-form {
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+            width: 100%;
+            max-width: 400px;
+            background: white;
+            padding: 32px 24px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        
+        .auth-form h2 {
+            color: var(--primary-color);
+            font-size: 1.8rem;
+            font-weight: 500;
+            text-align: center;
+            margin-bottom: 8px;
+        }
+        
+        .auth-form input {
+            background: white;
+            border: 1px solid #e0e0e0;
+            padding: 14px 18px;
+            font-size: 0.95rem;
+            outline: none;
+            width: 100%;
+            border-radius: 0;
+        }
+        
+        .auth-form input:focus {
+            border-color: var(--primary-color);
+        }
+        
+        .auth-button {
+            background: var(--primary-color);
+            border: none;
+            padding: 14px;
+            color: white;
+            font-weight: 500;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            cursor: pointer;
+            border-radius: 0;
+            transition: background 0.2s;
+        }
+        
+        .auth-button:hover {
+            background: var(--primary-dark);
+        }
+        
+        .auth-switch {
+            text-align: center;
+            font-size: 0.85rem;
+            color: #666;
+            cursor: pointer;
+        }
+        
+        .auth-switch span {
+            color: var(--primary-color);
+            font-weight: 500;
+        }
+        
+        .error-msg {
+            color: #c62828;
+            font-size: 0.8rem;
+            text-align: center;
+            margin-top: -10px;
+        }
+        
+        .avatar-preview {
+            width: 80px;
+            height: 80px;
+            margin: 0 auto;
+            cursor: pointer;
+            object-fit: cover;
+            border-radius: 50%;
+            display: block;
+        }
+        
+        .avatar-preview:hover {
+            opacity: 0.8;
+        }
+
+        @media (max-width: 480px) {
+            .auth-form {
+                padding: 24px 20px;
+                margin: 0 16px;
+            }
+            .auth-form h2 {
+                font-size: 1.5rem;
+            }
+            .auth-form input {
+                padding: 12px 16px;
+                font-size: 0.9rem;
+            }
+            .auth-button {
+                padding: 12px;
+            }
+        }
+    </style>
+</head>
+<body data-theme="green">
+<div class="auth-page" id="authPage">
+    <div class="auth-form" id="authForm">
+        <h2>Улиграм</h2>
+        <div id="authFields">
+            <input type="text" id="loginUsername" placeholder="Имя пользователя">
+            <input type="password" id="loginPassword" placeholder="Пароль">
+        </div>
+        <div id="errorMsg" class="error-msg"></div>
+        <button class="auth-button" id="authSubmitBtn">Войти</button>
+        <div class="auth-switch" id="authSwitch">Нет аккаунта? <span>Зарегистрироваться</span></div>
+    </div>
+</div>
+
+<script>
+    const DEFAULT_AVATAR = "https://allwebs.ru/images/2026/04/04/bac23179c8aedc4dc4768c792e256d56.jpg";
+    const STORAGE_KEY = 'UligramSession';
+    const THEME_KEY = 'UligramTheme';
+    
+    const firebaseConfig = {
+        apiKey: "AIzaSyDTx2Y9ctiWp26YeMmAHAxDZd_gVI_ZMdw",
+        authDomain: "kcalls.firebaseapp.com",
+        databaseURL: "https://kcalls-default-rtdb.firebaseio.com",
+        projectId: "kcalls",
+        storageBucket: "kcalls.firebasestorage.app",
+        messagingSenderId: "990117089104",
+        appId: "1:990117089104:web:278a42c037e975ebb76655",
+    };
+    firebase.initializeApp(firebaseConfig);
+    const database = firebase.database();
+    
+    function loadTheme() {
+        const savedTheme = localStorage.getItem(THEME_KEY);
+        if (savedTheme) {
+            document.body.setAttribute('data-theme', savedTheme);
+        }
+    }
+    
+    function saveTheme(theme) {
+        localStorage.setItem(THEME_KEY, theme);
+        document.body.setAttribute('data-theme', theme);
+    }
+    
+    function md5Hash(str) {
+        return CryptoJS.MD5(str).toString();
+    }
+    
+    function saveSession(username) {
+        localStorage.setItem(STORAGE_KEY, username);
+    }
+    
+    function resizeAndConvertToDataURL(file, targetSize = 64) {
+        return new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const img = new Image();
+                img.onload = function() {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = targetSize;
+                    canvas.height = targetSize;
+                    const ctx = canvas.getContext('2d');
+                    const size = Math.min(img.width, img.height);
+                    const offsetX = (img.width - size) / 2;
+                    const offsetY = (img.height - size) / 2;
+                    ctx.drawImage(img, offsetX, offsetY, size, size, 0, 0, targetSize, targetSize);
+                    resolve(canvas.toDataURL('image/png'));
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        });
+    }
+    
+    loadTheme();
+    
+    let isLogin = true;
+    let tempAvatar = DEFAULT_AVATAR;
+    
+    const authSubmitBtn = document.getElementById('authSubmitBtn');
+    const authSwitch = document.getElementById('authSwitch');
+    const authFields = document.getElementById('authFields');
+    const errorMsg = document.getElementById('errorMsg');
+    
+    authSwitch.addEventListener('click', () => {
+        isLogin = !isLogin;
+        if (isLogin) {
+            authFields.innerHTML = `
+                <input type="text" id="loginUsername" placeholder="Имя пользователя">
+                <input type="password" id="loginPassword" placeholder="Пароль">
+            `;
+            authSubmitBtn.textContent = 'Войти';
+            authSwitch.innerHTML = 'Нет аккаунта? <span>Зарегистрироваться</span>';
+            errorMsg.textContent = '';
+        } else {
+            authFields.innerHTML = `
+                <div style="text-align: center; margin-bottom: 10px;">
+                    <img class="avatar-preview" id="regAvatarPreview" src="${DEFAULT_AVATAR}" onclick="document.getElementById('regAvatarUpload').click()" style="cursor: pointer;">
+                    <input type="file" id="regAvatarUpload" style="display: none;" accept="image/*">
+                </div>
+                <input type="text" id="regUsername" placeholder="Имя пользователя">
+                <input type="password" id="regPassword" placeholder="Пароль">
+                <input type="password" id="regConfirmPassword" placeholder="Подтвердите пароль">
+            `;
+            authSubmitBtn.textContent = 'Зарегистрироваться';
+            authSwitch.innerHTML = 'Уже есть аккаунт? <span>Войти</span>';
+            errorMsg.textContent = '';
+            
+            const regAvatarUpload = document.getElementById('regAvatarUpload');
+            const regAvatarPreview = document.getElementById('regAvatarPreview');
+            regAvatarUpload.addEventListener('change', async (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    tempAvatar = await resizeAndConvertToDataURL(file);
+                    regAvatarPreview.src = tempAvatar;
+                }
+            });
+        }
+    });
+    
+    authSubmitBtn.addEventListener('click', async () => {
+        errorMsg.textContent = '';
+        
+        if (isLogin) {
+            const username = document.getElementById('loginUsername')?.value.trim();
+            const password = document.getElementById('loginPassword')?.value;
+            
+            if (!username || !password) {
+                errorMsg.textContent = 'Заполните все поля';
+                return;
+            }
+            
+            const hashedPassword = md5Hash(password);
+            const userRef = database.ref('users').child(username);
+            const snapshot = await userRef.once('value');
+            const userData = snapshot.val();
+            
+            if (userData && userData.password === hashedPassword) {
+                saveSession(username);
+                window.location.href = 'messenger.html';
+            } else {
+                errorMsg.textContent = 'Неверное имя пользователя или пароль';
+            }
+        } else {
+            const username = document.getElementById('regUsername')?.value.trim();
+            const password = document.getElementById('regPassword')?.value;
+            const confirmPassword = document.getElementById('regConfirmPassword')?.value;
+            
+            if (!username || !password || !confirmPassword) {
+                errorMsg.textContent = 'Заполните все поля';
+                return;
+            }
+            
+            if (password !== confirmPassword) {
+                errorMsg.textContent = 'Пароли не совпадают';
+                return;
+            }
+            
+            if (password.length < 4) {
+                errorMsg.textContent = 'Пароль должен быть не менее 4 символов';
+                return;
+            }
+            
+            const userRef = database.ref('users').child(username);
+            const snapshot = await userRef.once('value');
+            
+            if (snapshot.exists()) {
+                errorMsg.textContent = 'Пользователь уже существует';
+                return;
+            }
+            
+            const hashedPassword = md5Hash(password);
+            await userRef.set({
+                name: username,
+                password: hashedPassword,
+                avatar: tempAvatar,
+                createdAt: Date.now()
+            });
+            
+            saveSession(username);
+            window.location.href = 'messenger.html';
+        }
+    });
+</script>
+</body>
+</html>
