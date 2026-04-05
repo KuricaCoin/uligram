@@ -104,25 +104,15 @@
             border-radius: 50%;
             border: 2px solid white;
         }
-        .chat-info { flex: 1; }
+        .chat-info { flex: 1; min-width: 0; }
         .chat-name { font-weight: 500; font-size: 0.9rem; color: #212121; }
-        .chat-last-message { font-size: 0.75rem; color: #757575; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .delete-chat-btn {
-            background: none;
-            border: none;
-            cursor: pointer;
-            padding: 4px 8px;
-            color: #999;
-            font-size: 1.1rem;
-            display: none;
-            border-radius: 4px;
-        }
-        .delete-chat-btn:hover {
-            background: #f0f0f0;
-            color: #c62828;
-        }
-        .chat-item:hover .delete-chat-btn {
-            display: block;
+        .chat-last-message { 
+            font-size: 0.75rem; 
+            color: #757575; 
+            white-space: nowrap; 
+            overflow: hidden; 
+            text-overflow: ellipsis;
+            max-width: 100%;
         }
         
         .main-chat { flex: 1; display: flex; flex-direction: column; background: #f5f5f5; }
@@ -185,7 +175,7 @@
             background: white;
             border: 1px solid #e0e0e0;
             box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-            z-index: 1000;
+            z-index: 10000;
             min-width: 160px;
         }
         .context-menu-item {
@@ -361,7 +351,6 @@
                 height: 24px;
             }
             
-            /* Кнопка меню для открытия сайдбара */
             .menu-toggle {
                 display: flex;
                 background: none;
@@ -376,10 +365,6 @@
                 height: 24px;
                 background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="white"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg>') no-repeat center;
                 background-size: contain;
-            }
-            
-            .toolbar {
-                position: relative;
             }
             
             .toolbar-left {
@@ -575,7 +560,6 @@
         });
     }
 
-    // Mobile sidebar toggle
     function toggleSidebar() {
         const sidebar = document.getElementById('sidebar');
         sidebar.classList.toggle('open');
@@ -758,7 +742,7 @@
         
         const results = [];
         for (let [chatId, data] of Object.entries(groupsList)) {
-            if (data.name && data.name.toLowerCase().includes(query)) {
+            if (data.name && data.name.toLowerCase().includes(query) && !data.members.includes(currentUser)) {
                 results.push({
                     id: chatId,
                     name: data.name,
@@ -914,6 +898,93 @@
         setTimeout(() => switchChat(chatId, chatName), 100);
     }
     
+    // Контекстное меню для чата в списке (блокируем стандартное меню браузера)
+    function showChatContextMenu(event, chatId, chatName, chatType, creator) {
+        event.preventDefault();
+        event.stopPropagation();
+        const existingMenu = document.querySelector('.context-menu');
+        if (existingMenu) existingMenu.remove();
+        
+        const isCreator = (creator === currentUser);
+        const menu = document.createElement('div');
+        menu.className = 'context-menu';
+        menu.style.left = event.pageX + 'px';
+        menu.style.top = event.pageY + 'px';
+        
+        let menuHtml = `<div class="context-menu-item delete" onclick="hideChat('${chatId}')">Удалить</div>`;
+        if (isCreator && chatId !== 'general') {
+            menuHtml += `<div class="context-menu-item" onclick="editChat('${chatId}', '${escapeHtml(chatName)}', '${chatType}')">Изменить</div>`;
+        }
+        
+        menu.innerHTML = menuHtml;
+        document.body.appendChild(menu);
+        
+        setTimeout(() => {
+            document.addEventListener('click', function closeMenu() {
+                menu.remove();
+                document.removeEventListener('click', closeMenu);
+            });
+        }, 0);
+    }
+    
+    function editChat(chatId, chatName, chatType) {
+        const modalOverlay = document.createElement('div');
+        modalOverlay.className = 'modal-overlay';
+        modalOverlay.innerHTML = `
+            <div class="modal-content">
+                <h3 style="margin-bottom: 20px; color: var(--primary-color);">Редактировать чат</h3>
+                <div class="group-avatar-select">
+                    <img class="group-avatar-img" id="editGroupAvatar" src="${groupsList[chatId]?.avatar || DEFAULT_AVATAR}" onclick="document.getElementById('editGroupAvatarUpload').click()">
+                </div>
+                <input type="file" id="editGroupAvatarUpload" style="display: none;" accept="image/*">
+                <input type="text" class="modal-input" id="editChatName" value="${escapeHtml(chatName)}" maxlength="30">
+                <div style="display: flex; gap: 12px; margin-bottom: 16px;">
+                    <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                        <input type="radio" name="editChatType" value="group" ${chatType === 'group' ? 'checked' : ''}> Группа
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                        <input type="radio" name="editChatType" value="channel" ${chatType === 'channel' ? 'checked' : ''}> Канал
+                    </label>
+                </div>
+                <button class="modal-button" onclick="saveChatEdit('${chatId}')">Сохранить</button>
+                <button class="modal-button cancel" onclick="closeModal()">Отмена</button>
+            </div>
+        `;
+        
+        let tempAvatar = null;
+        const editAvatarUpload = modalOverlay.querySelector('#editGroupAvatarUpload');
+        const editAvatarPreview = modalOverlay.querySelector('#editGroupAvatar');
+        
+        editAvatarUpload.addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                tempAvatar = await resizeAndConvertToDataURL(file, 64);
+                editAvatarPreview.src = tempAvatar;
+            }
+        });
+        
+        window.saveChatEdit = (chatId) => {
+            const newName = document.getElementById('editChatName')?.value.trim();
+            const newType = document.querySelector('input[name="editChatType"]:checked')?.value;
+            if (!newName) { alert('Введите название чата'); return; }
+            
+            const updates = { name: newName, type: newType };
+            if (tempAvatar) updates.avatar = tempAvatar;
+            
+            database.ref('groups').child(chatId).update(updates);
+            closeModal();
+            setTimeout(() => {
+                updateChatsList();
+                if (currentChat === chatId) {
+                    switchChat(chatId, newName);
+                }
+            }, 100);
+        };
+        
+        document.body.appendChild(modalOverlay);
+        window.currentSettingsModal = modalOverlay;
+    }
+    
     function showContextMenu(event, msgId, msg, msgName) {
         event.preventDefault();
         const existingMenu = document.querySelector('.context-menu');
@@ -1024,6 +1095,11 @@
             cancelReply();
         }
         database.ref('messages').child(currentChat).push(messageData);
+        
+        if (currentChat.startsWith('private_') && !activeChats.has(currentChat)) {
+            activeChats.add(currentChat);
+            updateChatsList();
+        }
     }
     
     function formatTimeSec(seconds) {
@@ -1066,11 +1142,9 @@
         }
         database.ref('messages').child(currentChat).push(messageData);
         
-        if (currentChat.startsWith('private_')) {
-            if (!activeChats.has(currentChat)) {
-                activeChats.add(currentChat);
-                updateChatsList();
-            }
+        if (currentChat.startsWith('private_') && !activeChats.has(currentChat)) {
+            activeChats.add(currentChat);
+            updateChatsList();
         }
     }
     
@@ -1176,6 +1250,11 @@
         chatsList.innerHTML = '';
         if (generalItem) chatsList.appendChild(generalItem);
         
+        // Добавляем контекстное меню для общего чата
+        if (generalItem) {
+            generalItem.oncontextmenu = (e) => { e.preventDefault(); showChatContextMenu(e, 'general', 'Общий чат', 'channel', 'system'); return false; };
+        }
+        
         for (let [chatId, data] of Object.entries(groupsList)) {
             if (hiddenChats.has(chatId)) continue;
             if (data.members && data.members.includes(currentUser)) {
@@ -1190,9 +1269,9 @@
                         <div class="chat-name">${escapeHtml(data.name)}</div>
                         <div class="chat-last-message" id="lastMsg_${chatId}">Нет сообщений</div>
                     </div>
-                    <button class="delete-chat-btn" onclick="event.stopPropagation(); hideChat('${chatId}')">✕</button>
                 `;
                 div.onclick = () => switchChat(chatId, data.name);
+                div.oncontextmenu = (e) => { e.preventDefault(); showChatContextMenu(e, chatId, data.name, data.type, data.creator); return false; };
                 chatsList.appendChild(div);
                 
                 database.ref('messages').child(chatId).limitToLast(1).once('value', (snapshot) => {
@@ -1202,6 +1281,8 @@
                         if (msg.image) lastMessage = 'Изображение';
                         else if (msg.voice) lastMessage = 'Голосовое сообщение';
                         else if (msg.text) lastMessage = msg.text;
+                        // Обрезаем длинные сообщения
+                        if (lastMessage.length > 30) lastMessage = lastMessage.substring(0, 27) + '...';
                     });
                     const lastMsgDiv = document.getElementById(`lastMsg_${chatId}`);
                     if (lastMsgDiv) lastMsgDiv.textContent = escapeHtml(lastMessage);
@@ -1229,9 +1310,9 @@
                                 <div class="chat-name">${escapeHtml(name)}</div>
                                 <div class="chat-last-message" id="lastMsg_${chatId}">Нет сообщений</div>
                             </div>
-                            <button class="delete-chat-btn" onclick="event.stopPropagation(); hideChat('${chatId}')">✕</button>
                         `;
                         div.onclick = () => switchChat(chatId, name);
+                        div.oncontextmenu = (e) => { e.preventDefault(); showChatContextMenu(e, chatId, name, 'private', null); return false; };
                         chatsList.appendChild(div);
                         
                         database.ref('messages').child(chatId).limitToLast(1).once('value', (snapshot) => {
@@ -1241,6 +1322,7 @@
                                 if (msg.image) lastMessage = 'Изображение';
                                 else if (msg.voice) lastMessage = 'Голосовое сообщение';
                                 else if (msg.text) lastMessage = msg.text;
+                                if (lastMessage.length > 30) lastMessage = lastMessage.substring(0, 27) + '...';
                             });
                             const lastMsgDiv = document.getElementById(`lastMsg_${chatId}`);
                             if (lastMsgDiv) lastMsgDiv.textContent = escapeHtml(lastMessage);
@@ -1287,7 +1369,6 @@
             `;
             loadMessagesToContainer(chatId, 'channelMessages');
         } else {
-            // Добавляем кнопку меню для мобильных устройств
             mainChat.innerHTML = `
                 <div class="toolbar">
                     <div class="toolbar-left">
@@ -1315,7 +1396,6 @@
         const activeItem = document.querySelector(`.chat-item[data-chat="${chatId}"]`);
         if (activeItem) activeItem.classList.add('active');
         
-        // Закрываем сайдбар на мобильных после выбора чата
         closeSidebar();
     }
     
@@ -1345,6 +1425,7 @@
                 addMessageToMain(msg, snapshot.key);
             }
             let lastMessage = msg.image ? 'Изображение' : (msg.voice ? 'Голосовое сообщение' : (msg.text || ''));
+            if (lastMessage.length > 30) lastMessage = lastMessage.substring(0, 27) + '...';
             updateLastMessageInList(chatId, lastMessage);
         };
         
@@ -1535,11 +1616,9 @@
         database.ref('messages').child(currentChat).push(messageData);
         input.value = '';
         
-        if (currentChat.startsWith('private_')) {
-            if (!activeChats.has(currentChat)) {
-                activeChats.add(currentChat);
-                updateChatsList();
-            }
+        if (currentChat.startsWith('private_') && !activeChats.has(currentChat)) {
+            activeChats.add(currentChat);
+            updateChatsList();
         }
     }
     
