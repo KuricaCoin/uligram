@@ -52,12 +52,25 @@
             box-shadow: 0 4px 12px rgba(0,0,0,0.1);
         }
         
+        .header-row {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            margin-bottom: 8px;
+        }
+        
+        .logo {
+            width: 40px;
+            height: 40px;
+            object-fit: contain;
+        }
+        
         .auth-form h2 {
             color: var(--primary-color);
             font-size: 1.8rem;
             font-weight: 500;
-            text-align: center;
-            margin-bottom: 8px;
+            margin: 0;
         }
         
         .auth-form input {
@@ -129,6 +142,10 @@
                 padding: 24px 20px;
                 margin: 0 16px;
             }
+            .logo {
+                width: 32px;
+                height: 32px;
+            }
             .auth-form h2 {
                 font-size: 1.5rem;
             }
@@ -145,7 +162,10 @@
 <body data-theme="green">
 <div class="auth-page" id="authPage">
     <div class="auth-form" id="authForm">
-        <h2>Улиграм</h2>
+        <div class="header-row">
+            <img class="logo" src="https://uligram.c6t.ru/uligram.svg" alt="Uligram Logo" onerror="this.style.display='none'">
+            <h2>Улиграм</h2>
+        </div>
         <div id="authFields">
             <input type="text" id="loginUsername" placeholder="Имя пользователя">
             <input type="password" id="loginPassword" placeholder="Пароль">
