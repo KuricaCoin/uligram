@@ -224,6 +224,55 @@
         .modal-button.danger:hover { background: #8e0000; }
         .image-modal { max-width: 90vw; max-height: 90vh; object-fit: contain; }
         
+        /* Settings Tabs */
+        .settings-tabs {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-bottom: 24px;
+            border-bottom: 1px solid #e0e0e0;
+            padding-bottom: 16px;
+        }
+        .settings-tab {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 16px;
+            cursor: pointer;
+            transition: background 0.2s;
+            border-radius: 8px;
+            color: #212121;
+        }
+        .settings-tab:hover {
+            background: #f5f5f5;
+        }
+        .settings-tab.active {
+            background: var(--primary-light);
+            color: var(--primary-dark);
+        }
+        .settings-tab-icon {
+            width: 20px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .settings-tab-icon svg {
+            width: 20px;
+            height: 20px;
+            fill: currentColor;
+        }
+        .settings-tab-text {
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+        .settings-panel {
+            display: none;
+        }
+        .settings-panel.active {
+            display: block;
+        }
+        
         .settings-group { margin-bottom: 24px; text-align: left; }
         .settings-label { display: block; font-size: 0.85rem; font-weight: 500; color: #757575; margin-bottom: 8px; text-align: center; }
         .settings-input { width: 100%; padding: 10px; border: 1px solid #e0e0e0; font-size: 0.9rem; outline: none; }
@@ -898,7 +947,7 @@
         setTimeout(() => switchChat(chatId, chatName), 100);
     }
     
-    // Контекстное меню для чата в списке (блокируем стандартное меню браузера)
+    // Контекстное меню для чата в списке
     function showChatContextMenu(event, chatId, chatName, chatType, creator) {
         event.preventDefault();
         event.stopPropagation();
@@ -1250,7 +1299,6 @@
         chatsList.innerHTML = '';
         if (generalItem) chatsList.appendChild(generalItem);
         
-        // Добавляем контекстное меню для общего чата
         if (generalItem) {
             generalItem.oncontextmenu = (e) => { e.preventDefault(); showChatContextMenu(e, 'general', 'Общий чат', 'channel', 'system'); return false; };
         }
@@ -1281,7 +1329,6 @@
                         if (msg.image) lastMessage = 'Изображение';
                         else if (msg.voice) lastMessage = 'Голосовое сообщение';
                         else if (msg.text) lastMessage = msg.text;
-                        // Обрезаем длинные сообщения
                         if (lastMessage.length > 30) lastMessage = lastMessage.substring(0, 27) + '...';
                     });
                     const lastMsgDiv = document.getElementById(`lastMsg_${chatId}`);
@@ -1623,41 +1670,107 @@
     }
     
     function openSettingsModal() {
+        let activeTab = 'profile';
+        
         const modalOverlay = document.createElement('div');
         modalOverlay.className = 'modal-overlay';
         modalOverlay.innerHTML = `
             <div class="modal-content" style="min-width:350px;">
                 <h3 style="margin-bottom:20px;color:var(--primary-color);">Настройки</h3>
-                <div class="settings-group">
-                    <div class="settings-avatar">
-                        <img class="settings-avatar-img" id="settingsAvatar" src="${currentAvatar}" onclick="document.getElementById('settingsAvatarUpload').click()">
+                <div class="settings-tabs">
+                    <div class="settings-tab ${activeTab === 'profile' ? 'active' : ''}" data-tab="profile">
+                        <div class="settings-tab-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                                <circle cx="12" cy="7" r="4"></circle>
+                            </svg>
+                        </div>
+                        <span class="settings-tab-text">Профиль</span>
                     </div>
-                    <div class="settings-avatar-text">Фото профиля</div>
-                    <input type="file" id="settingsAvatarUpload" style="display:none;" accept="image/*">
-                </div>
-                <div class="settings-group">
-                    <label class="settings-label">Имя пользователя</label>
-                    <input type="text" class="settings-input" id="settingsName" value="${escapeHtml(currentUser)}" maxlength="20">
-                </div>
-                <div class="settings-group">
-                    <label class="settings-label">Цветовая тема</label>
-                    <div class="color-options">
-                        <div class="color-option color-green ${document.body.getAttribute('data-theme') === 'green' ? 'active' : ''}" onclick="changeTheme('green')"></div>
-                        <div class="color-option color-red ${document.body.getAttribute('data-theme') === 'red' ? 'active' : ''}" onclick="changeTheme('red')"></div>
-                        <div class="color-option color-blue ${document.body.getAttribute('data-theme') === 'blue' ? 'active' : ''}" onclick="changeTheme('blue')"></div>
-                        <div class="color-option color-purple ${document.body.getAttribute('data-theme') === 'purple' ? 'active' : ''}" onclick="changeTheme('purple')"></div>
-                        <div class="color-option color-orange ${document.body.getAttribute('data-theme') === 'orange' ? 'active' : ''}" onclick="changeTheme('orange')"></div>
-                        <div class="color-option color-yellow ${document.body.getAttribute('data-theme') === 'yellow' ? 'active' : ''}" onclick="changeTheme('yellow')"></div>
+                    <div class="settings-tab ${activeTab === 'theme' ? 'active' : ''}" data-tab="theme">
+                        <div class="settings-tab-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="12" cy="12" r="5"></circle>
+                                <line x1="12" y1="1" x2="12" y2="3"></line>
+                                <line x1="12" y1="21" x2="12" y2="23"></line>
+                                <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                                <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                                <line x1="1" y1="12" x2="3" y2="12"></line>
+                                <line x1="21" y1="12" x2="23" y2="12"></line>
+                                <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                                <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                            </svg>
+                        </div>
+                        <span class="settings-tab-text">Тема</span>
                     </div>
+                    <div class="settings-tab ${activeTab === 'account' ? 'active' : ''}" data-tab="account">
+                        <div class="settings-tab-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                                <circle cx="12" cy="7" r="4"></circle>
+                                <line x1="18" y1="8" x2="22" y2="12"></line>
+                                <line x1="22" y1="8" x2="18" y2="12"></line>
+                            </svg>
+                        </div>
+                        <span class="settings-tab-text">Управление аккаунтом</span>
+                    </div>
+                </div>
+                <div class="settings-panel active" data-panel="profile">
+                    <div class="settings-group">
+                        <div class="settings-avatar">
+                            <img class="settings-avatar-img" id="settingsAvatar" src="${currentAvatar}" onclick="document.getElementById('settingsAvatarUpload').click()">
+                        </div>
+                        <div class="settings-avatar-text">Фото профиля</div>
+                        <input type="file" id="settingsAvatarUpload" style="display:none;" accept="image/*">
+                    </div>
+                    <div class="settings-group">
+                        <label class="settings-label">Имя пользователя</label>
+                        <input type="text" class="settings-input" id="settingsName" value="${escapeHtml(currentUser)}" maxlength="20">
+                    </div>
+                </div>
+                <div class="settings-panel" data-panel="theme">
+                    <div class="settings-group">
+                        <label class="settings-label">Цветовая тема</label>
+                        <div class="color-options">
+                            <div class="color-option color-green ${document.body.getAttribute('data-theme') === 'green' ? 'active' : ''}" onclick="changeTheme('green')"></div>
+                            <div class="color-option color-red ${document.body.getAttribute('data-theme') === 'red' ? 'active' : ''}" onclick="changeTheme('red')"></div>
+                            <div class="color-option color-blue ${document.body.getAttribute('data-theme') === 'blue' ? 'active' : ''}" onclick="changeTheme('blue')"></div>
+                            <div class="color-option color-purple ${document.body.getAttribute('data-theme') === 'purple' ? 'active' : ''}" onclick="changeTheme('purple')"></div>
+                            <div class="color-option color-orange ${document.body.getAttribute('data-theme') === 'orange' ? 'active' : ''}" onclick="changeTheme('orange')"></div>
+                            <div class="color-option color-yellow ${document.body.getAttribute('data-theme') === 'yellow' ? 'active' : ''}" onclick="changeTheme('yellow')"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="settings-panel" data-panel="account">
+                    <button class="modal-button danger" onclick="deleteAccount()">Удалить аккаунт</button>
                 </div>
                 <hr>
                 <div class="settings-buttons">
                     <button class="modal-button" onclick="saveSettings()">Сохранить</button>
                     <button class="modal-button cancel" onclick="closeModal()">Отмена</button>
-                    <button class="modal-button danger" onclick="deleteAccount()">Удалить аккаунт</button>
                 </div>
             </div>
         `;
+        
+        // Tab switching
+        const tabs = modalOverlay.querySelectorAll('.settings-tab');
+        const panels = modalOverlay.querySelectorAll('.settings-panel');
+        
+        tabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                const tabName = tab.getAttribute('data-tab');
+                tabs.forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                panels.forEach(panel => {
+                    if (panel.getAttribute('data-panel') === tabName) {
+                        panel.classList.add('active');
+                    } else {
+                        panel.classList.remove('active');
+                    }
+                });
+            });
+        });
+        
         const settingsAvatarUpload = modalOverlay.querySelector('#settingsAvatarUpload');
         settingsAvatarUpload.addEventListener('change', async (e) => {
             const file = e.target.files[0];
@@ -1668,6 +1781,7 @@
                 updateUserAvatarInMessages();
             }
         });
+        
         document.body.appendChild(modalOverlay);
         window.currentSettingsModal = modalOverlay;
     }
